@@ -355,7 +355,7 @@
 #'
 #'
 
-mHMM_cont <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, return_path = FALSE, print_iter, show_progress = TRUE,
+mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, return_path = FALSE, print_iter, show_progress = TRUE,
                       gamma_hyp_prior = NULL, gamma_sampler = NULL){
 
   if(!missing(print_iter)){
@@ -503,6 +503,7 @@ mHMM_cont <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
       emiss_c_mu[[i]][[q]][,1] <- start_val[[1 + q]][i,1]
     }
   }
+  emiss_c_alpha_bar <- emiss_c_beta_bar <- rep(list(rep(list(NULL),n_dep)), m)
   # emiss_V_mu <- emiss_c_mu_bar <- emiss_c_V <- rep(list(rep(list(NULL),n_dep)), m)
   n_cond_y <- numeric(n_subj)
   # label_switch <- matrix(0, ncol = n_dep, nrow = m, dimnames = list(c(paste("mu_S", 1:m, sep = "")), dep_labels))
@@ -674,7 +675,7 @@ mHMM_cont <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
         # Sample subject values for gamma using RW Metropolis sampler   ---------
         gamma_candcov_comb 			<- chol2inv(chol(subj_data[[s]]$gamma_mhess[(1 + (i - 1) * (m - 1)):((m - 1) + (i - 1) * (m - 1)), ] + chol2inv(chol(gamma_V_int[[i]]))))
         gamma_RWout					    <- mnl_RW_once(int1 = gamma_c_int[[i]][s,], Obs = trans[[s]][[i]], n_cat = m, mu_int_bar1 = c(t(gamma_mu_int_bar[[i]]) %*% xx[[1]][s,]), V_int1 = gamma_V_int[[i]], scalar = gamma_scalar, candcov1 = gamma_candcov_comb)
-        gamma[[s]][i,]  	      <- PD_subj[[s]][iter, c((n_dep * 2 * m + 1 + (i - 1) * m):(n_dep * 2 * m + (i - 1) * m + m))] <- gamma_RWout$prob
+        gamma[[s]][i,]  	      <- PD_subj[[s]][iter, c((n_dep * m + 1 + (i - 1) * m):(n_dep * m + (i - 1) * m + m))] <- gamma_RWout$prob
         gamma_naccept[s, i]			<- gamma_naccept[s, i] + gamma_RWout$accept
         gamma_c_int[[i]][s,]		<- gamma_RWout$draw_int
         gamma_int_subj[[s]][iter, (1 + (i - 1) * (m - 1)):((m - 1) + (i - 1) * (m - 1))] <- gamma_c_int[[i]][s,]
@@ -694,9 +695,9 @@ mHMM_cont <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
       ### sampling subject specific lambda (mean of the emission distribution), see Gill p. 429
       for(q in 1:n_dep){
         for (s in 1:n_subj){
-          emiss_alpha_subj <- sum(cond_y[[s]][[i]][[q]]) + emiss_alpha_bar[[i]][[q]]
+          emiss_alpha_subj <- sum(cond_y[[s]][[i]][[q]]) + emiss_c_alpha_bar[[i]][[q]]
           # emiss_beta_subj <- 1 + emiss_beta_bar[[i]][[q]] # According to Gill p. 429
-          emiss_beta_subj <- length(cond_y[[s]][[i]][[q]]) + emiss_beta_bar[[i]][[q]] # According to Bolstad p. 196
+          emiss_beta_subj <- length(cond_y[[s]][[i]][[q]]) + emiss_c_beta_bar[[i]][[q]] # According to Bolstad p. 196
           emiss[[s]][[q]][i,1] <- PD_subj[[s]][iter, ((q - 1) * m + i)] <- emiss_c_mu[[i]][[q]][s,1] <- rgamma(1, shape = emiss_alpha_subj, rate = emiss_beta_subj)
         }
       }

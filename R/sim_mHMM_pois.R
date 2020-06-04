@@ -434,7 +434,7 @@ sim_mHMM_pois <- function(n_t, n, data_distr = 'categorical', m, n_dep = 1,
   }
   if(is.null(var_emiss) & data_distr != "poisson"){
     var_emiss <- rep(0.1, n_dep)
-  } else if(length(var_emiss) != n_dep){
+  } else if(length(var_emiss) != n_dep & data_distr != "poisson"){
     stop("The lenght of var_emiss specifying variance between subjects in each of the number of dependent variables should equal the number of dependent variables specified in n_dep")
   }
 
