@@ -301,7 +301,7 @@
 # write stop to check that number of beta's specified corresponds to number of covariates
 #   specified in xx (besides checking that both of them are present)
 
-sim_mHMM <- function(n_t, n, data_distr = 'categorical', m, n_dep = 1,
+sim_mHMM_pois <- function(n_t, n, data_distr = 'categorical', m, n_dep = 1,
                      start_state = NULL, q_emiss = NULL, gamma, emiss_distr, xx_vec = NULL, beta = NULL,
                      var_gamma = 0.1, var_emiss = NULL, return_ind_par = FALSE){
 
