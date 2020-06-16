@@ -356,7 +356,7 @@
 #'
 
 mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, return_path = FALSE, print_iter, show_progress = TRUE,
-                      gamma_hyp_prior = NULL, gamma_sampler = NULL){
+                      gamma_hyp_prior = NULL, gamma_sampler = NULL, alpha_scale = 1){
 
   if(!missing(print_iter)){
     warning("The argument print_iter is depricated; please use show_progress instead to show the progress of the algorithm.")
@@ -536,10 +536,10 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
   names(emiss_alpha_bar) <- dep_labels
   names(emiss_beta_bar) <- dep_labels
   for(q in 1:n_dep){
-    # emiss_alpha_bar[[q]][1,] <- PD[1, ((q-1) * m + 1):(q * m)]
-    # emiss_beta_bar[[q]][1,] <- PD[1, ((q-1) * m + 1):(q * m)]
-    emiss_alpha_bar[[q]][1,] <-  rgamma(m, shape = emiss_alpha_bar_a0[[q]], rate = emiss_alpha_bar_b0[[q]])
-    emiss_beta_bar[[q]][1,] <- rgamma(m, shape = emiss_beta_bar_a0[[q]], rate = emiss_beta_bar_b0[[q]])
+    emiss_alpha_bar[[q]][1,] <- PD[1, ((q-1) * m + 1):(q * m)]
+    emiss_beta_bar[[q]][1,] <- PD[1, ((q-1) * m + 1):(q * m)]
+    # emiss_alpha_bar[[q]][1,] <- rgamma(m, shape = emiss_alpha_bar_a0[[q]], rate = emiss_alpha_bar_b0[[q]])
+    # emiss_beta_bar[[q]][1,] <- rgamma(m, shape = emiss_beta_bar_a0[[q]], rate = emiss_beta_bar_b0[[q]])
   }
   gamma_int_bar				<- matrix(, nrow = J, ncol = ((m-1) * m))
   colnames(gamma_int_bar) <- paste("int_S", rep(1:m, each = m-1), "toS", rep(2:m, m), sep = "")
@@ -617,7 +617,8 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
         trans[[s]][[i]] <- c(trans[[s]][[i]], 1:m)
         trans[[s]][[i]] <- rev(trans[[s]][[i]])
         for(q in 1:n_dep){
-          cond_y[[s]][[i]][[q]] <- c(subj_data[[s]]$y[sample_path[[s]][, iter] == i, q])
+          # cond_y[[s]][[i]][[q]] <- c(subj_data[[s]]$y[sample_path[[s]][, iter] == i, q])
+          cond_y[[s]][[i]][[q]] <- c(subj_data[[s]]$y[sample_path[[s]][, iter] == i, q],1)
         }
       }
     }
@@ -688,16 +689,38 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
       # Sample subject values for normal emission distribution using Gibbs sampler   ---------
       # population level, conditional probabilities, separate for each dependent variable, see Gill p. 429
       for(q in 1:n_dep){
-        emiss_c_alpha_bar[[i]][[q]] <- emiss_alpha_bar[[q]][iter,i] <- rgamma(1, shape = emiss_alpha_bar_a0[[q]], rate = emiss_alpha_bar_b0[[q]])
-        emiss_c_beta_bar[[i]][[q]] <- emiss_beta_bar[[q]][iter,i] <- rgamma(1, shape = emiss_beta_bar_a0[[q]], rate = emiss_beta_bar_b0[[q]])
+        # emiss_c_alpha_bar[[i]][[q]] <- emiss_alpha_bar[[q]][iter,i] <- rgamma(1, shape = emiss_alpha_bar_a0[[q]], rate = emiss_alpha_bar_b0[[q]])
+        # emiss_c_beta_bar[[i]][[q]] <- emiss_beta_bar[[q]][iter,i] <- rgamma(1, shape = emiss_beta_bar_a0[[q]], rate = emiss_beta_bar_b0[[q]])
+
+        if(iter == 2) {
+          emiss_c_alpha_bar[[i]][[q]] <- emiss_alpha_bar[[q]][1,i]
+          emiss_c_beta_bar[[i]][[q]] <- emiss_beta_bar[[q]][1,i]
+          # emiss_c_alpha_bar[[i]][[q]] <- 1
+          # emiss_c_beta_bar[[i]][[q]] <- 1
+        }
+
+        # Sample alpha
+        emiss_RW_out <- pois_RW_once(lambdas = emiss_c_mu[[i]][[q]][,1], alpha_old = emiss_c_alpha_bar[[i]][[q]], beta = emiss_c_beta_bar[[i]][[q]], a0 = emiss_alpha_bar_a0[[q]], b0 = emiss_alpha_bar_b0[[q]], alpha_scale = alpha_scale)
+        emiss_c_alpha_bar[[i]][[q]] <- emiss_alpha_bar[[q]][iter,i] <- emiss_RW_out$alpha
+        # gamma_naccept[q, i] <- emiss_RW_out$accept
+
+        # Sample beta
+        # emiss_c_beta_bar[[i]][[q]] <- emiss_beta_bar[[q]][iter,i] <- rgamma(1, shape = (emiss_beta_bar_a0[[q]]*n_subj + emiss_c_alpha_bar[[i]][[q]]), rate = (emiss_beta_bar_b0[[q]] + sum(emiss_c_mu[[i]][[q]][,1])))
+        emiss_c_beta_bar[[i]][[q]] <- emiss_beta_bar[[q]][iter,i] <- rgamma(1, shape = (emiss_c_alpha_bar[[i]][[q]]*n_subj + 1 + emiss_beta_bar_a0[[q]]), rate = (emiss_beta_bar_b0[[q]] + sum(emiss_c_mu[[i]][[q]][,1])))
       }
 
       ### sampling subject specific lambda (mean of the emission distribution), see Gill p. 429
       for(q in 1:n_dep){
         for (s in 1:n_subj){
           emiss_alpha_subj <- sum(cond_y[[s]][[i]][[q]]) + emiss_c_alpha_bar[[i]][[q]]
-          # emiss_beta_subj <- 1 + emiss_beta_bar[[i]][[q]] # According to Gill p. 429
+          # emiss_alpha_subj <- mean(cond_y[[s]][[i]][[q]]) + emiss_c_alpha_bar[[i]][[q]]
+          # emiss_beta_subj <- 1 + emiss_c_beta_bar[[i]][[q]] # According to Gill p. 429
+          # emiss_beta_subj <- 1 + emiss_c_beta_bar[[i]][[q]]
           emiss_beta_subj <- length(cond_y[[s]][[i]][[q]]) + emiss_c_beta_bar[[i]][[q]] # According to Bolstad p. 196
+          # cat("\nemiss_c_alpha_bar:",emiss_c_alpha_bar[[i]][[q]],
+          #     "\nsum(cond_y):",sum(cond_y[[s]][[i]][[q]]),
+          #     "\nlength(cond_y):",length(cond_y[[s]][[i]][[q]]),
+          #     "\nemiss_c_beta_bar:",emiss_c_beta_bar[[i]][[q]],"\n")
           emiss[[s]][[q]][i,1] <- PD_subj[[s]][iter, ((q - 1) * m + i)] <- emiss_c_mu[[i]][[q]][s,1] <- rgamma(1, shape = emiss_alpha_subj, rate = emiss_beta_subj)
         }
       }

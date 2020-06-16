@@ -16,7 +16,8 @@ mHMM_pois(
   print_iter,
   show_progress = TRUE,
   gamma_hyp_prior = NULL,
-  gamma_sampler = NULL
+  gamma_sampler = NULL,
+  alpha_scale = 1
 )
 }
 \arguments{
