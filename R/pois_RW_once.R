@@ -20,9 +20,9 @@ pois_RW_once <- function(lambdas, alpha_old, beta, a0, b0, alpha_scale = 0.1){
   # Acceptance ratio
   acc <- min(log(1),(posterior_new + dgamma(alpha_old, shape = alpha_scale, rate = alpha_scale/alpha_cand, log = TRUE)) - (posterior_old + dgamma(alpha_cand, shape = alpha_scale, rate = alpha_scale/alpha_old, log = TRUE)))
 
-  if (is.na(acc)) {
-    acc <- -1
-  }
+  # if (is.na(acc)) {
+  #   acc <- -1
+  # }
 
   # Draw from runif and return alpha
   if(acc < log(1)) {
@@ -44,6 +44,7 @@ pois_RW_once <- function(lambdas, alpha_old, beta, a0, b0, alpha_scale = 0.1){
 alpha_llk <- function(lambdas, alpha, beta){
 
   n <- length(lambdas)
-  return(n*log((beta^alpha)/base::gamma(alpha)) + (alpha-1)*sum(log(lambdas)))
+  # return(n*log((beta^alpha)/base::gamma(alpha)) + (alpha-1)*sum(log(lambdas)))
+  return(n*log(exp(alpha*log(beta)-log(base::gamma(alpha)))) + (alpha-1)*sum(log(lambdas)))
 
 }
