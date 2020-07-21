@@ -1,7 +1,7 @@
-#' Multilevel hidden  Markov model using Bayesian estimation for continuous
-#' observations
+#' Multilevel hidden  Markov model using Bayesian estimation for count
+#' observations and a multi-trial design
 #'
-#' \code{mHMM_pois} fits a multilevel (also known as mixed or random effects)
+#' \code{mHMM_pois_mt} fits a multilevel (also known as mixed or random effects)
 #' hidden Markov model (HMM) to intense longitudinal data with continuous
 #' observations (i.e., normally distributed) of multiple subjects using Bayesian
 #' estimation, and creates an object of class mHMM_cont. By using a multilevel
@@ -48,12 +48,15 @@
 #' @param s_data A matrix containing the observations to be modelled, where the
 #'   rows represent the observations over time. In \code{s_data}, the first
 #'   column indicates subject id number. Hence, the id number is repeated over
-#'   rows equal to the number of observations for that subject. The subsequent
-#'   columns contain the dependent variable(s). Note that the dependent
-#'   variables are assumed to be continuous (i.e., normally distributed
-#'   depending on the hidden states). The total number of rows are equal to the
-#'   sum over the number of observations of each subject, and the number of
-#'   columns are equal to the number of dependent variables (\code{n_dep}) + 1.
+#'   rows equal to the number of observations for that subject. The second
+#'   column indicates within subject repeated measurement. Same as id number,
+#'   is repeated over rows equal to the number of obsecations for that repeated
+#'   measurement. The subsequent columns contain the dependent variable(s). Note
+#'    that the dependent variables are assumed to be continuous (i.e., normally
+#'    distributed depending on the hidden states).
+#'    The total number of rows are equal to the sum over the number of
+#'    observations of each subject, and the number of columns are equal to the
+#'    number of dependent variables (\code{n_dep}) + 1.
 #'   The number of observations can vary over subjects.
 #' @param gen List containing the following elements denoting the general model
 #'   properties:
@@ -355,7 +358,7 @@
 #'
 #'
 
-mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, return_path = FALSE, print_iter, show_progress = TRUE,
+mHMM_pois_rm <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, return_path = FALSE, print_iter, show_progress = TRUE,
                       gamma_hyp_prior = NULL, gamma_sampler = NULL, alpha_scale = 1){
 
   if(!missing(print_iter)){
@@ -364,7 +367,7 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
   # Initialize data -----------------------------------
   # dependent variable(s), sample size, dimensions gamma and conditional distribuiton
   n_dep			 <- gen$n_dep
-  dep_labels <- colnames(s_data[,2:(n_dep+1)])
+  dep_labels <- colnames(s_data[,3:(n_dep+2)])
   id         <- unique(s_data[,1])
   n_subj     <- length(id)
   subj_data  <- rep(list(NULL), n_subj)
@@ -372,18 +375,39 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
     stop("Your data contains factorial variables, which cannot be used as input in the function mHMM. All variables have to be numerical.")
   }
   for(s in 1:n_subj){
-    subj_data[[s]]$y <- as.matrix(s_data[s_data[,1] == id[s],][,-1], ncol = n_dep)
+    subj_data[[s]]$y <- as.matrix(s_data[s_data[,1] == id[s],][,3:(n_dep+2)], ncol = n_dep)
   }
   ypooled    <- n <- NULL
   n_vary     <- numeric(n_subj)
   m          <- gen$m
 
+  # Initialize within subject repeated measures
+  n_subj_rm <- c()
+  subj_data_rm  <- rep(list(NULL), n_subj)
+  for(s in 1:n_subj){
+    rm_id <- unique(s_data[which(s_data[,1] == s),2])
+    n_subj_rm[s]  <- length(rm_id)
+    subj_data_rm[[s]]  <- rep(list(NULL), n_subj_rm[s])
+    for(r in 1:n_subj_rm[s]){
+      subj_data_rm[[s]][[r]]$y <- as.matrix(s_data[s_data[,2] == rm_id[r],][,3:(n_dep+2)], ncol = n_dep)
+    }
+  }
+
+  n_vary_rm <- rep(list(NULL), n_subj)
   for(s in 1:n_subj){
     ypooled   <- rbind(ypooled, subj_data[[s]]$y)
     n         <- dim(subj_data[[s]]$y)[1]
     n_vary[s] <- n
     subj_data[[s]]	<- c(subj_data[[s]], n = n, list(gamma_converge = numeric(m), gamma_int_mle = matrix(, m, (m - 1)),
                                                     gamma_mhess = matrix(, (m - 1) * m, (m - 1))))
+    for(r in 1:n_subj_rm[s]){
+      n_rm <- dim(subj_data_rm[[s]][[r]]$y)[1]
+      n_vary_rm[[s]][r] <- n_rm
+      # cat("\ns =",s,"r =",r)
+      subj_data_rm[[s]][[r]] <- c(subj_data_rm[[s]][[r]], n = n_rm, list(gamma_converge = numeric(m), gamma_int_mle = matrix(, m, (m - 1)),
+                                                              gamma_mhess = matrix(, (m - 1) * m, (m - 1))))
+      # cat("\nyet alive")
+    }
   }
   n_total 		<- dim(ypooled)[1]
 
@@ -484,8 +508,16 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
   # Define objects used to store data in mcmc algorithm, not returned ----------------------------
   # overall
   c <- llk <- numeric(1)
-  sample_path <- lapply(n_vary, dif_matrix, cols = J)
-  trans <- rep(list(vector("list", m)), n_subj)
+  # sample_path <- lapply(n_vary, dif_matrix, cols = J)
+  # trans <- rep(list(vector("list", m)), n_subj)
+
+  trans <- vector("list", n_subj)
+  trans_pooled_subj <- rep(list(vector("list", m)), n_subj)
+  sample_path <- vector("list", n_subj)
+  for(s in 1:n_subj){
+    trans[[s]] <- rep(list(vector("list", m)), n_subj_rm[[s]])
+    sample_path[[s]] <- lapply(n_vary_rm[[s]], dif_matrix, cols = J)
+  }
 
   # gamma
   gamma_int_mle_pooled <- gamma_pooled_ll <- vector("list", m)
@@ -495,7 +527,13 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
   gamma_naccept <- matrix(0, n_subj, m)
 
   # emiss
-  cond_y <- lapply(rep(n_dep, n_subj), nested_list, m = m)
+  cond_y <- vector("list", n_subj)
+  for(s in 1:n_subj){
+    cond_y[[s]] <- lapply(rep(n_dep, n_subj_rm[[s]]), nested_list, m = m)
+  }
+
+  # cond_y <- lapply(rep(n_dep, n_subj), nested_list, m = m)
+  cond_y_pooled_subj <- lapply(rep(n_dep, n_subj), nested_list, m = m)
   cond_y_pooled <- rep(list(rep(list(NULL),n_dep)), m)
   emiss_c_mu <- rep(list(rep(list(matrix(,ncol = 1, nrow = n_subj)),n_dep)), m)
   for(i in 1:m){
@@ -506,7 +544,6 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
   emiss_c_alpha_bar <- emiss_c_beta_bar <- rep(list(rep(list(NULL),n_dep)), m)
   # emiss_V_mu <- emiss_c_mu_bar <- emiss_c_V <- rep(list(rep(list(NULL),n_dep)), m)
   n_cond_y <- numeric(n_subj)
-  emiss_naccept <- rep(list(matrix(0, n_subj, m)), n_dep)
   # label_switch <- matrix(0, ncol = n_dep, nrow = m, dimnames = list(c(paste("mu_S", 1:m, sep = "")), dep_labels))
 
 
@@ -599,32 +636,45 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
 
     # For each subject, obtain sampled state sequence with subject individual parameters ----------
     for(s in 1:n_subj){
-      # Run forward algorithm, obtain subject specific forward proababilities and log likelihood
-      forward				<- pois_mult_fw_r_to_cpp(x = subj_data[[s]]$y, m = m, emiss = emiss[[s]], gamma = gamma[[s]], n_dep = n_dep, delta=NULL)
-      alpha         <- forward[[1]]
-      c             <- max(forward[[2]][, subj_data[[s]]$n])
-      llk           <- c + log(sum(exp(forward[[2]][, subj_data[[s]]$n] - c)))
-      PD_subj[[s]][iter, sum(n_dep * m) + m * m + 1] <- llk
 
-      # Using the forward probabilites, sample the state sequence in a backward manner.
-      # In addition, saves state transitions in trans, and conditional observations within states in cond_y
-      trans[[s]]					                  <- vector("list", m)
-      # cat("\niter:",iter,
-      #     "\ns:",s,
-      #     "\nn_vary:", n_vary[[s]],
-      #     "\nalpha:", c(alpha[, n_vary[[s]]]))
-      sample_path[[s]][n_vary[[s]], iter] 	<- sample(1:m, 1, prob = c(alpha[, n_vary[[s]]]))
-      for(t in (subj_data[[s]]$n - 1):1){
-        sample_path[[s]][t,iter] 	              <- sample(1:m, 1, prob = (alpha[, t] * gamma[[s]][,sample_path[[s]][t + 1, iter]]))
-        trans[[s]][[sample_path[[s]][t,iter]]]	<- c(trans[[s]][[sample_path[[s]][t, iter]]], sample_path[[s]][t + 1, iter])
-      }
-      for (i in 1:m){
-        trans[[s]][[i]] <- c(trans[[s]][[i]], 1:m)
-        trans[[s]][[i]] <- rev(trans[[s]][[i]])
-        for(q in 1:n_dep){
-          # cond_y[[s]][[i]][[q]] <- c(subj_data[[s]]$y[sample_path[[s]][, iter] == i, q])
-          cond_y[[s]][[i]][[q]] <- c(subj_data[[s]]$y[sample_path[[s]][, iter] == i, q],1)
+      # For each subject's repeated measurement, obtain sampled state sequence with subject individual parameters ----------
+      for(r in 1:n_subj_rm[s]){
+
+        # Run forward algorithm, obtain subject specific forward proababilities and log likelihood
+        forward				<- pois_mult_fw_r_to_cpp(x = subj_data_rm[[s]][[r]]$y, m = m, emiss = emiss[[s]], gamma = gamma[[s]], n_dep = n_dep, delta=NULL)
+        alpha         <- forward[[1]]
+        c             <- max(forward[[2]][, subj_data_rm[[s]][[r]]$n])
+        llk           <- c + log(sum(exp(forward[[2]][, subj_data_rm[[s]][[r]]$n] - c)))
+        if(r==1) {
+          PD_subj[[s]][iter, sum(n_dep * m) + m * m + 1] <- llk
+        } else {
+          PD_subj[[s]][iter, sum(n_dep * m) + m * m + 1] <- PD_subj[[s]][iter, sum(n_dep * m) + m * m + 1] + llk
         }
+
+        # Using the forward probabilites, sample the state sequence in a backward manner.
+        # In addition, saves state transitions in trans, and conditional observations within states in cond_y
+        trans[[s]][[r]]					                  <- vector("list", m)
+        # cat("\niter:",iter,
+        #     "\ns:",s,
+        #     "\nn_vary:", n_vary[[s]],
+        #     "\nalpha:", c(alpha[, n_vary[[s]]]))
+        sample_path[[s]][[r]][n_vary_rm[[s]][[r]], iter] 	<- sample(1:m, 1, prob = c(alpha[, n_vary_rm[[s]][[r]]]))
+        for(t in (subj_data_rm[[s]][[r]]$n - 1):1){
+          sample_path[[s]][[r]][t,iter] 	              <- sample(1:m, 1, prob = (alpha[, t] * gamma[[s]][,sample_path[[s]][[r]][t + 1, iter]]))
+          trans[[s]][[r]][[sample_path[[s]][[r]][t,iter]]]	<- c(trans[[s]][[r]][[sample_path[[s]][[r]][t, iter]]], sample_path[[s]][[r]][t + 1, iter])
+        }
+
+        for (i in 1:m){
+          # trans[[s]][[r]][[i]] <- c(trans[[s]][[r]][[i]], 1:m)
+          # trans[[s]][[r]][[i]] <- c(trans[[s]][[r]][[i]])
+          trans[[s]][[r]][[i]] <- rev(trans[[s]][[r]][[i]])
+          for(q in 1:n_dep){
+            # cond_y[[s]][[i]][[q]] <- c(subj_data[[s]]$y[sample_path[[s]][, iter] == i, q])
+            # cond_y[[s]][[r]][[i]][[q]] <- c(subj_data_rm[[s]][[r]]$y[sample_path[[s]][[r]][, iter] == i, q],1)
+            cond_y[[s]][[r]][[i]][[q]] <- subj_data_rm[[s]][[r]]$y[sample_path[[s]][[r]][, iter] == i, q]
+          }
+        }
+
       }
     }
 
@@ -635,7 +685,8 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
       # used to scale the propasal distribution of the RW Metropolis sampler
 
       # population level, transition matrix
-      trans_pooled			  <- factor(c(unlist(sapply(trans, "[[", i)), c(1:m)))
+      print(str(trans[[1]][[1]]))
+      trans_pooled			  <- factor(c(unlist(sapply(trans, function(l) sapply(l,"[[", i))), c(1:m)))
       gamma_mle_pooled		<- optim(gamma_int_mle0, llmnl_int, Obs = trans_pooled,
                                  n_cat = m, method = "BFGS", hessian = TRUE,
                                  control = list(fnscale = -1))
@@ -645,16 +696,17 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
       # subject level
       for (s in 1:n_subj){
         wgt 				<- subj_data[[s]]$n / n_total
+        trans_pooled_subj[[s]][[i]] <- unlist(sapply(trans[[s]],"[[", i))
 
         # subject level, transition matrix
-        gamma_out					<- optim(gamma_int_mle_pooled[[i]], llmnl_int_frac, Obs = c(trans[[s]][[i]], c(1:m)),
+        gamma_out					<- optim(gamma_int_mle_pooled[[i]], llmnl_int_frac, Obs = c(trans_pooled_subj[[s]][[i]], c(1:m)),
                                n_cat = m, pooled_likel = gamma_pooled_ll[[i]], w = gamma_w, wgt = wgt,
                                method="BFGS", hessian = TRUE, control = list(fnscale = -1))
         if(gamma_out$convergence == 0){
           subj_data[[s]]$gamma_converge[i] <- 1
           subj_data[[s]]$gamma_int_mle[i,] <- gamma_out$par
           subj_data[[s]]$gamma_mhess[(1 + (i - 1) * (m - 1)):((m - 1) + (i - 1) * (m - 1)), ]	<-
-            mnlHess_int(int = gamma_out$par, Obs = c(trans[[s]][[i]], c(1:m)), n_cat =  m)
+            mnlHess_int(int = gamma_out$par, Obs = c(trans_pooled_subj[[s]][[i]], c(1:m)), n_cat =  m)
         } else {
           subj_data[[s]]$gamma_converge[i] <- 0
           subj_data[[s]]$gamma_int_mle[i,] <- rep(0, m - 1)
@@ -680,7 +732,7 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
       for (s in 1:n_subj){
         # Sample subject values for gamma using RW Metropolis sampler   ---------
         gamma_candcov_comb 			<- chol2inv(chol(subj_data[[s]]$gamma_mhess[(1 + (i - 1) * (m - 1)):((m - 1) + (i - 1) * (m - 1)), ] + chol2inv(chol(gamma_V_int[[i]]))))
-        gamma_RWout					    <- mnl_RW_once(int1 = gamma_c_int[[i]][s,], Obs = trans[[s]][[i]], n_cat = m, mu_int_bar1 = c(t(gamma_mu_int_bar[[i]]) %*% xx[[1]][s,]), V_int1 = gamma_V_int[[i]], scalar = gamma_scalar, candcov1 = gamma_candcov_comb)
+        gamma_RWout					    <- mnl_RW_once(int1 = gamma_c_int[[i]][s,], Obs = trans_pooled_subj[[s]][[i]], n_cat = m, mu_int_bar1 = c(t(gamma_mu_int_bar[[i]]) %*% xx[[1]][s,]), V_int1 = gamma_V_int[[i]], scalar = gamma_scalar, candcov1 = gamma_candcov_comb)
         gamma[[s]][i,]  	      <- PD_subj[[s]][iter, c((n_dep * m + 1 + (i - 1) * m):(n_dep * m + (i - 1) * m + m))] <- gamma_RWout$prob
         gamma_naccept[s, i]			<- gamma_naccept[s, i] + gamma_RWout$accept
         gamma_c_int[[i]][s,]		<- gamma_RWout$draw_int
@@ -707,7 +759,7 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
         # Sample alpha
         emiss_RW_out <- pois_RW_once(lambdas = emiss_c_mu[[i]][[q]][,1], alpha_old = emiss_c_alpha_bar[[i]][[q]], beta = emiss_c_beta_bar[[i]][[q]], a0 = emiss_alpha_bar_a0[[q]], b0 = emiss_alpha_bar_b0[[q]], alpha_scale = alpha_scale)
         emiss_c_alpha_bar[[i]][[q]] <- emiss_alpha_bar[[q]][iter,i] <- emiss_RW_out$alpha
-        emiss_naccept[[q]][s, i] <- emiss_naccept[[q]][s, i] + emiss_RW_out$accept
+        # gamma_naccept[q, i] <- emiss_RW_out$accept
 
         # Sample beta
         emiss_c_beta_bar[[i]][[q]] <- emiss_beta_bar[[q]][iter,i] <- rgamma(1, shape = (emiss_c_alpha_bar[[i]][[q]]*n_subj + 1 + emiss_beta_bar_a0[[q]]), rate = (emiss_beta_bar_b0[[q]] + sum(emiss_c_mu[[i]][[q]][,1])))
@@ -715,14 +767,20 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
         # emiss_c_beta_bar[[i]][[q]] <- emiss_beta_bar[[q]][iter,i] <- rgamma(1, shape = (n_subj*emiss_beta_bar_a0[[q]]), rate = (emiss_beta_bar_b0[[q]] + sum(emiss_c_mu[[i]][[q]][,1])))
       }
 
-      ### sampling subject specific lambda (mean of the emission distribution), see Gill p. 429 & Bolstad p. 196
+      ### sampling subject specific lambda (mean of the emission distribution), see Gill p. 429
       for(q in 1:n_dep){
         for (s in 1:n_subj){
-          emiss_alpha_subj <- sum(cond_y[[s]][[i]][[q]]) + emiss_c_alpha_bar[[i]][[q]]
+
+          # Pool observations at a subject level
+          cond_y_pooled_subj[[s]][[i]][[q]] <- c(unlist(lapply(lapply(cond_y[[s]],"[[",i),"[[",q)),1)
+          # cond_y_pooled_subj[[s]][[i]][[q]] <- unlist(lapply(lapply(cond_y[[s]],"[[",i),"[[",q))
+
+          # Sample alpha and beta
+          emiss_alpha_subj <- sum(cond_y_pooled_subj[[s]][[i]][[q]]) + emiss_c_alpha_bar[[i]][[q]]
           # emiss_alpha_subj <- mean(cond_y[[s]][[i]][[q]]) + emiss_c_alpha_bar[[i]][[q]]
           # emiss_beta_subj <- 1 + emiss_c_beta_bar[[i]][[q]] # According to Gill p. 429
           # emiss_beta_subj <- 1 + emiss_c_beta_bar[[i]][[q]]
-          emiss_beta_subj <- length(cond_y[[s]][[i]][[q]]) + emiss_c_beta_bar[[i]][[q]] # According to Bolstad p. 196
+          emiss_beta_subj <- length(cond_y_pooled_subj[[s]][[i]][[q]]) + emiss_c_beta_bar[[i]][[q]] # According to Bolstad p. 196
           # cat("\nemiss_c_alpha_bar:",emiss_c_alpha_bar[[i]][[q]],
           #     "\nsum(cond_y):",sum(cond_y[[s]][[i]][[q]]),
           #     "\nlength(cond_y):",length(cond_y[[s]][[i]][[q]]),
@@ -761,19 +819,22 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
   # End of function, return output values --------
   ctime = proc.time()[3]
   message(paste("Total time elapsed (hh:mm:ss):", hms(ctime-itime)))
-
-  out <- list(input = list(m = m, n_dep = n_dep, J = J,
-                           burn_in = burn_in, n_subj = n_subj, n_vary = n_vary, dep_labels = dep_labels),
-              PD_subj = PD_subj, gamma_int_subj = gamma_int_subj,
-              gamma_int_bar = gamma_int_bar, gamma_cov_bar = gamma_cov_bar, gamma_prob_bar = gamma_prob_bar,
-              emiss_alpha_bar = emiss_alpha_bar, emiss_beta_bar = emiss_beta_bar,
-              gamma_naccept = gamma_naccept,
-              emiss_naccept = emiss_naccept)
-
   if(return_path == TRUE){
-    out <- c(out, sample_path = sample_path) # label_switch = label_switch
+    out <- list(input = list(m = m, n_dep = n_dep, J = J,
+                             burn_in = burn_in, n_subj = n_subj, n_vary = n_vary, dep_labels = dep_labels),
+                PD_subj = PD_subj, gamma_int_subj = gamma_int_subj,
+                gamma_int_bar = gamma_int_bar, gamma_cov_bar = gamma_cov_bar, gamma_prob_bar = gamma_prob_bar,
+                emiss_alpha_bar = emiss_alpha_bar, emiss_beta_bar = emiss_beta_bar,
+                gamma_naccept = gamma_naccept,
+                sample_path = sample_path) # label_switch = label_switch
+  } else {
+    out <- list(input = list(m = m, n_dep = n_dep, J = J,
+                             burn_in = burn_in, n_subj = n_subj, n_vary = n_vary, dep_labels = dep_labels),
+                PD_subj = PD_subj, gamma_int_subj = gamma_int_subj,
+                gamma_int_bar = gamma_int_bar, gamma_cov_bar = gamma_cov_bar, gamma_prob_bar = gamma_prob_bar,
+                emiss_alpha_bar = emiss_alpha_bar, emiss_beta_bar = emiss_beta_bar,
+                gamma_naccept = gamma_naccept) # label_switch = label_switch
   }
-
   class(out) <- append(class(out), "mHMM_pois")
   return(out)
   }
