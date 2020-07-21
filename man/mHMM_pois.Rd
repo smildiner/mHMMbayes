@@ -2,7 +2,7 @@
 % Please edit documentation in R/mHMM_pois.R
 \name{mHMM_pois}
 \alias{mHMM_pois}
-\title{Multilevel hidden  Markov model using Bayesian estimation for continuous
+\title{Multilevel hidden Markov model using Bayesian estimation for count
 observations}
 \usage{
 mHMM_pois(
@@ -13,6 +13,7 @@ mHMM_pois(
   emiss_hyp_prior,
   mcmc,
   return_path = FALSE,
+  return_fw_prob = FALSE,
   print_iter,
   show_progress = TRUE,
   gamma_hyp_prior = NULL,
@@ -128,6 +129,13 @@ obtained at each iteration and for each subject be returned by the function
 the sampled state sequence is quite a large object, hence the default
 setting is \code{sample_path = FALSE}. Can be used for local decoding
 purposes.}
+
+\item{return_fw_prob}{A logical scalar. Should the states' forward
+probabilities obtained at each time step and each iteration for each
+subject be returned by the function (\code{return_fw_prob = TRUE}) or not
+(\code{return_fw_prob = FALSE}). Note that the forward probability
+sequence is quite a large object, hence the default setting is
+\code{return_fw_prob = FALSE}. Can be used for local decoding purposes.}
 
 \item{print_iter}{The argument print_iter is depricated; please use
 show_progress instead to show the progress of the algorithm.}
@@ -282,9 +290,9 @@ over all subjects) in the fractional likelihood.}}
 }
 \description{
 \code{mHMM_pois} fits a multilevel (also known as mixed or random effects)
-hidden Markov model (HMM) to intense longitudinal data with continuous
-observations (i.e., normally distributed) of multiple subjects using Bayesian
-estimation, and creates an object of class mHMM_cont. By using a multilevel
+hidden Markov model (HMM) to intense longitudinal data with count
+observations (i.e., Poisson distributed) of multiple subjects using Bayesian
+estimation, and creates an object of class mHMM_pois. By using a multilevel
 framework, we allow for heterogeneity in the model parameters between
 subjects, while estimating one overall HMM. The function includes the
 possibility to add covariates at level 2 (i.e., at the subject level) and

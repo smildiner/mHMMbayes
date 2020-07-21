@@ -1,10 +1,10 @@
-#' Multilevel hidden  Markov model using Bayesian estimation for continuous
+#' Multilevel hidden Markov model using Bayesian estimation for count
 #' observations
 #'
 #' \code{mHMM_pois} fits a multilevel (also known as mixed or random effects)
-#' hidden Markov model (HMM) to intense longitudinal data with continuous
-#' observations (i.e., normally distributed) of multiple subjects using Bayesian
-#' estimation, and creates an object of class mHMM_cont. By using a multilevel
+#' hidden Markov model (HMM) to intense longitudinal data with count
+#' observations (i.e., Poisson distributed) of multiple subjects using Bayesian
+#' estimation, and creates an object of class mHMM_pois. By using a multilevel
 #' framework, we allow for heterogeneity in the model parameters between
 #' subjects, while estimating one overall HMM. The function includes the
 #' possibility to add covariates at level 2 (i.e., at the subject level) and
@@ -98,6 +98,12 @@
 #'   the sampled state sequence is quite a large object, hence the default
 #'   setting is \code{sample_path = FALSE}. Can be used for local decoding
 #'   purposes.
+#' @param return_fw_prob A logical scalar. Should the states' forward
+#'   probabilities obtained at each time step and each iteration for each
+#'   subject be returned by the function (\code{return_fw_prob = TRUE}) or not
+#'   (\code{return_fw_prob = FALSE}). Note that the forward probability
+#'   sequence is quite a large object, hence the default setting is
+#'   \code{return_fw_prob = FALSE}. Can be used for local decoding purposes.
 #' @param print_iter The argument print_iter is depricated; please use
 #'   show_progress instead to show the progress of the algorithm.
 #' @param show_progress A logical scaler. Should the function show a text
@@ -355,7 +361,7 @@
 #'
 #'
 
-mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, return_path = FALSE, print_iter, show_progress = TRUE,
+mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, return_path = FALSE, return_fw_prob = FALSE, print_iter, show_progress = TRUE,
                       gamma_hyp_prior = NULL, gamma_sampler = NULL, alpha_scale = 1){
 
   if(!missing(print_iter)){
@@ -558,6 +564,13 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
   gamma 			<- rep(list(matrix(PD[1,(m * n_dep + 1):(m * n_dep + m * m)], byrow = TRUE, ncol = m)), n_subj)
   delta 			<- rep(list(solve(t(diag(m) - gamma[[1]] + 1), rep(1, m))), n_subj)
 
+  # forward_prob <- rep(list(rep(list(matrix(,nrow = n_vary, ncol = J)),m)), n_subj)
+  forward_prob <- vector("list", n_subj)
+  for(s in 1:n_subj){
+    for(i in 1:m){
+      forward_prob[[s]][[paste0("fw_prob_S",i)]] <- matrix(,nrow = n_vary, ncol = J)
+    }
+  }
 
   # Start analysis --------------------------------------------
   # Run the MCMC algorithm
@@ -588,6 +601,7 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
       for (i in 1:m){
         trans[[s]][[i]] <- c(trans[[s]][[i]], 1:m)
         trans[[s]][[i]] <- rev(trans[[s]][[i]])
+        forward_prob[[s]][[i]][, iter] <- alpha[i,]
         for(q in 1:n_dep){
           cond_y[[s]][[i]][[q]] <- c(subj_data[[s]]$y[sample_path[[s]][, iter] == i, q],1)
         }
@@ -658,7 +672,7 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
       }
 
       # Sample subject values for normal emission distribution using Gibbs sampler   ---------
-      # population level, conditional probabilities, separate for each dependent variable, see Gill p. 429
+      # population level, conditional probabilities, separate for each dependent variable, see Gill p.429 & Bolstad p.196
       for(q in 1:n_dep){
 
         if(iter == 2) {
@@ -715,7 +729,11 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
               emiss_naccept = emiss_naccept)
 
   if(return_path == TRUE){
-    out <- c(out, sample_path = sample_path) # label_switch = label_switch
+    out[["sample_path"]] <- sample_path
+  }
+
+  if(return_fw_prob == TRUE){
+    out[["forward_prob"]] <- forward_prob
   }
 
   class(out) <- append(class(out), "mHMM_pois")

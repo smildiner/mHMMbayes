@@ -13,6 +13,7 @@ mHMM_pois_rm(
   emiss_hyp_prior,
   mcmc,
   return_path = FALSE,
+  return_fw_prob = FALSE,
   print_iter,
   show_progress = TRUE,
   gamma_hyp_prior = NULL,
