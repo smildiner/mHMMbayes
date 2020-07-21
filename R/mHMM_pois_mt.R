@@ -1,10 +1,10 @@
-#' Multilevel hidden  Markov model using Bayesian estimation for count
-#' observations and a multi-trial design
+#' Multilevel hidden Markov model using Bayesian estimation for count
+#' observations and a repeated-measurement design
 #'
-#' \code{mHMM_pois_mt} fits a multilevel (also known as mixed or random effects)
-#' hidden Markov model (HMM) to intense longitudinal data with continuous
-#' observations (i.e., normally distributed) of multiple subjects using Bayesian
-#' estimation, and creates an object of class mHMM_cont. By using a multilevel
+#' \code{mHMM_pois} fits a multilevel (also known as mixed or random effects)
+#' hidden Markov model (HMM) to intense longitudinal data with count
+#' observations (i.e., Poisson distributed) of multiple subjects using Bayesian
+#' estimation, and creates an object of class mHMM_pois. By using a multilevel
 #' framework, we allow for heterogeneity in the model parameters between
 #' subjects, while estimating one overall HMM. The function includes the
 #' possibility to add covariates at level 2 (i.e., at the subject level) and
@@ -30,16 +30,17 @@
 #' If covariates are specified and the user wants to set the values for the
 #' parameters of the hyper-prior distributions manually, the specification of
 #' the elements in the arguments of the hyper-prior parameter values of the
-#' normal distribution on the means change as follows: the number of rows in the
-#' matrices \code{gamma_mu0} and \code{emiss_mu0} are equal to 1 + the number of
+#' normal distribution on the means for the transition probabilities
+#' change as follows: the number of rows in the
+#' matrix \code{gamma_mu0} is equal to 1 + the number of
 #' covariates used to predict the transition probability matrix for
-#' \code{gamma_mu0} and the emission distribution for \code{emiss_mu0} (i.e.,
+#' \code{gamma_mu0} (i.e.,
 #' the first row correspond to the hyper-prior mean values of the intercepts,
 #' the subsequent rows correspond to the hyper-prior mean values of the
 #' regression coefficients connected to each of the covariates), and
-#' \code{gamma_K0} and \code{emiss_K0} are now a matrix with the number of
+#' \code{gamma_K0} is now a matrix with the number of
 #' hypothetical prior subjects on which the vectors of means (i.e., the rows in
-#' \code{gamma_mu0} or \code{emiss_mu0}) are based on the diagonal, and
+#' \code{gamma_mu0}) are based on the diagonal, and
 #' off-diagonal elements equal to 0. Note that the hyper-prior parameter values
 #' of the inverse Wishart distribution on the covariance matrix remains
 #' unchanged, as the estimates of the regression coefficients for the covariates
@@ -48,15 +49,12 @@
 #' @param s_data A matrix containing the observations to be modelled, where the
 #'   rows represent the observations over time. In \code{s_data}, the first
 #'   column indicates subject id number. Hence, the id number is repeated over
-#'   rows equal to the number of observations for that subject. The second
-#'   column indicates within subject repeated measurement. Same as id number,
-#'   is repeated over rows equal to the number of obsecations for that repeated
-#'   measurement. The subsequent columns contain the dependent variable(s). Note
-#'    that the dependent variables are assumed to be continuous (i.e., normally
-#'    distributed depending on the hidden states).
-#'    The total number of rows are equal to the sum over the number of
-#'    observations of each subject, and the number of columns are equal to the
-#'    number of dependent variables (\code{n_dep}) + 1.
+#'   rows equal to the number of observations for that subject. The subsequent
+#'   columns contain the dependent variable(s). Note that the dependent
+#'   variables are assumed to be continuous (i.e., normally distributed
+#'   depending on the hidden states). The total number of rows are equal to the
+#'   sum over the number of observations of each subject, and the number of
+#'   columns are equal to the number of dependent variables (\code{n_dep}) + 1.
 #'   The number of observations can vary over subjects.
 #' @param gen List containing the following elements denoting the general model
 #'   properties:
@@ -65,7 +63,7 @@
 #'   \item{\code{n_dep}: numeric vector with length 1 denoting the
 #'   number of dependent variables}}
 #' @param xx An optional list of (level 2) covariates to predict the transition
-#'   matrix and/or the emission probabilities. Level 2 covariate(s) means that
+#'   matrix. Level 2 covariate(s) means that
 #'   there is one observation per subject of each covariate. The first element
 #'   in the list \code{xx} is used to predict the transition matrix. Subsequent
 #'   elements in the list are used to predict the emission distribution of (each
@@ -73,8 +71,9 @@
 #'   the number of rows equal to the number of subjects. The first column of
 #'   each matrix represents the intercept, that is, a column only consisting of
 #'   ones. Subsequent columns correspond to covariates used to predict the
-#'   transition matrix / emission distribution. See \emph{Details} for more
-#'   information on the use of covariates.
+#'   transition matrix. See \emph{Details} for more
+#'   information on the use of covariates. Support for prediction of emission
+#'   probabilities may be added on future versions of the package.
 #'
 #'   If \code{xx} is omitted completely, \code{xx} defaults to \code{NULL},
 #'   resembling no covariates. Specific elements in the list can also be left
@@ -85,9 +84,8 @@
 #'   probability matrix gamma and the emission distribution(s). The first
 #'   element of the list contains a \code{m} by \code{m} matrix with the start
 #'   values for gamma. The subsequent elements are matrices with \code{m} rows
-#'   and 2 columns; the first column denoting the mean of state \emph{i} (row
-#'   \emph{i}) and the second column denoting the variance of state \emph{i}
-#'   (row \emph{i}) of the Normal distribution. Note that \code{start_val}
+#'   and 1 column denoting the Poisson parameters lambda of state \emph{i} (row
+#'   \emph{i}). Note that \code{start_val}
 #'   should not contain nested lists (i.e., lists within lists).
 #' @param mcmc List of Markov chain Monte Carlo (MCMC) arguments, containing the
 #'   following elements:
@@ -101,6 +99,12 @@
 #'   the sampled state sequence is quite a large object, hence the default
 #'   setting is \code{sample_path = FALSE}. Can be used for local decoding
 #'   purposes.
+#' @param return_fw_prob A logical scalar. Should the states' forward
+#'   probabilities obtained at each time step and each iteration for each
+#'   subject be returned by the function (\code{return_fw_prob = TRUE}) or not
+#'   (\code{return_fw_prob = FALSE}). Note that the forward probability
+#'   sequence is quite a large object, hence the default setting is
+#'   \code{return_fw_prob = FALSE}.
 #' @param print_iter The argument print_iter is depricated; please use
 #'   show_progress instead to show the progress of the algorithm.
 #' @param show_progress A logical scaler. Should the function show a text
@@ -142,49 +146,37 @@
 #'  See \emph{Details} below if covariates are used for changes in the settings
 #'  of the arguments of \code{gamma_hyp_prior}.
 #' @param emiss_hyp_prior A list containing user specified parameters
-#'   of the hyper-prior distribution on the Normal (i.e., Gaussian) emission
+#'   of the hyper-prior distribution on the Poisson emission
 #'   distributions (and regression coefficients given that covariates are used)
 #'   for each of the states. The hyper-prior connected to the means of the
-#'   Normal emission distribution(s) is a Normal-Inverse-Gamma distribution
-#'   (i.e., assuming both unknown populaltion mean and variance between subject
-#'   level means). The hyper-prior on each of fixed variances of the Normal
-#'   emission distribuitons is an Inverse gamma distribution (i.e., assuming a
-#'   known mean).
+#'   Poisson emission distribution(s) is a hierarchical Poisson-Gamma
+#'   distribution. The hyper-priors on the scale (\code{emiss_alpha_bar}) and
+#'   rate (\code{emiss_beta_bar}) of the Gamma prior
+#'   are defined by Gamma hyper-priors with hyper-parameters
+#'   \code{emiss_alpha_a0}, \code{emiss_alpha_b0}, \code{emiss_beta_a0} and
+#'   \code{emiss_beta_b0}, respectively.
 #'
 #'  Hence, the list \code{emiss_hyp_prior} contains the following elements:
-#'  \itemize{\item{\code{emiss_mu0}: a list containing \code{n_dep} matrices
-#'  with one row (when not including covariates in the model) and \code{m}
-#'  columns denoting the hypothesized mean values of the Normal emission
-#'  distributions in each of the states for each dependent variable \code{k}}.
-#'  \item{\code{emiss_K0}: a list containing \code{n_dep} elements corresponding
-#'  to each of the dependent variables, where each element is an integer denoting
-#'  the number of hypothetical prior subjects on which the vector of means
-#'  \code{emiss_mu0} is based}.
-#'  \item{\code{emiss_nu}: a list containing \code{n_dep} elements corresponding
-#'  to each of the dependent variables, where each element is an integer
-#'  denoting the degrees of freedom of the Inverse Gamma hyper-prior
-#'  distribution connected to the emission distribution means (note: here, the
-#'  Inverse Gamma hyper-prior distribution is parametrized as a scaled inverse
-#'  chi-squared distribution).}
-#'  \item{\code{emiss_V}: a list containing \code{n_dep} elements corresponding
+#'  \itemize{\item{\code{emiss_alpha_a0}: a list containing \code{n_dep} elements corresponding
 #'  to each of the dependent variables \code{k}, where each element is a vector
-#'  with lenght \code{m} containing the hypothesized variances between the
-#'  between subject level means of the Inverse Gamma hyper-prior distribution
-#'  connected to the emission distribution means (note: here, the Inverse Gamma
-#'  hyper-prior distribution is parametrized as a scaled inverse chi-squared
-#'  distribution).}
-#'  \item{\code{emiss_a0}: a list containing \code{n_dep} elements corresponding
+#'  with lenght \code{m} containing the shape values of the Gamma
+#'  hyper-prior on each of the means of the Poisson emission distribuitons
+#'  (note: here the standard Gamma parametrization is used, with parameters shape and rate).}
+#'  \item{\code{emiss_alpha_b0}: a list containing \code{n_dep} elements corresponding
 #'  to each of the dependent variables \code{k}, where each element is a vector
-#'  with lenght \code{m} containing the shape values of the Inverse Gamma
-#'  hyper-prior on each of fixed variances of the Normal emission distribuitons
-#'  (note: here the standard Inverse Gamma parametrization is used).}
-#'  \item{\code{emiss_b0}: a list containing \code{n_dep} elements corresponding
+#'  with lenght \code{m} containing the rate values of the Gamma
+#'  hyper-prior on each of the means of the Poisson emission distribuitons
+#'  (note: here the standard Gamma parametrization is used, with parameters shape and rate).}
+#'  \item{\code{emiss_beta_a0}: a list containing \code{n_dep} elements corresponding
 #'  to each of the dependent variables \code{k}, where each element is a vector
-#'  with lenght \code{m} containing the scale values of the Inverse Gamma
-#'  hyper-prior on each of fixed variances of the Normal emission distribuitons
-#'  (note: here the standard Inverse Gamma parametrization is used).}}
-#'  Note that \code{emiss_K0} and \code{emiss_nu} are assumed
-#'  equal over the states.
+#'  with lenght \code{m} containing the shape values of the Gamma
+#'  hyper-prior on each of the means of the Poisson emission distribuitons
+#'  (note: here the standard Gamma parametrization is used, with parameters shape and rate).}
+#'  \item{\code{emiss_beta_b0}: a list containing \code{n_dep} elements corresponding
+#'  to each of the dependent variables \code{k}, where each element is a vector
+#'  with lenght \code{m} containing the rate values of the Gamma
+#'  hyper-prior on each of the means of the Poisson emission distribuitons
+#'  (note: here the standard Gamma parametrization is used, with parameters shape and rate).}}
 #'
 #'
 #'  See \emph{Details} below if covariates are used for changes in the settings
@@ -209,8 +201,13 @@
 #'   \code{gamma_scalar} set to 2.93 / sqrt(\code{m} - 1), and \code{gamma_w} set to
 #'   0.1. See the section \emph{Scaling the proposal distribution of the RW
 #'   Metropolis sampler} in \code{vignette("estimation-mhmm")} for details.
+#' @param alpha_scale A numeric value specifying the scalar used on the
+#'  Random-Walk Metropolis within Gibbs used to sample the population-level
+#'  shape parameter alpha. This is the tuning parameter that can be used to
+#'  ensure an efficient sampling from the posterior distribution of
+#'  \code{alpha}. \code{alpha_scale} defaults to 1.
 #'
-#' @return \code{mHMM_cont} returns an object of class \code{mHMM_cont}, which has
+#' @return \code{mHMM_pois} returns an object of class \code{mHMM_pois}, which has
 #'   \code{print} and \code{summary} methods to see the results.
 #'   The object contains the following components:
 #'   \describe{
@@ -248,7 +245,11 @@
 #'   draws at the subject level RW Metropolis step for each set of parameters of
 #'   the transition probabilities. The subjects are contained in the rows, and
 #'   the columns contain the sets of parameters.}
-#'   \item{\code{emiss_mu_bar}}{A list containing one matrix per dependent
+#'   \item{\code{emiss_naccept}}{A matrix containing the number of accepted
+#'   draws at the subject level RW Metropolis step for each set of
+#'   \code{alpha_bar} of the emission probabilities. The dependent variables
+#'   are contained in the rows, and the columns contain the hidden states.}
+#'   \item{\code{emiss_alpha_bar}}{A list containing one matrix per dependent
 #'   variable, denoting the group level means of the Normal emission
 #'   distribution of each dependent variable over the iterations of the Gibbs
 #'   sampler. The iterations of the sampler are contained in the rows of the
@@ -257,31 +258,11 @@
 #'   the predicted mean given that the covariate is at the average value for
 #'   continuous covariates, or given that the covariate equals zero for
 #'   dichotomous covariates.}
-#'   \item{\code{emiss_varmu_bar}}{A list containing one matrix per dependent
+#'   \item{\code{emiss_beta_bar}}{A list containing one matrix per dependent
 #'   variable, denoting the variance between the subject level means of the
 #'   Normal emision distributions. over the iterations of the Gibbs sampler. The
 #'   iterations of the sampler are contained in the rows of the matrix, and the
 #'   columns contain the group level variance in the mean.}
-#'   \item{\code{emiss_var_bar}}{A list containing one matrix per dependent
-#'   variable, denoting the (fixed over subjects) variance of the Normal emision
-#'   distributions over the iterations of the Gibbs sampler. The iterations of
-#'   the sampler are contained in the rows of the matrix, and the columns
-#'   contain the group level emission variances.}
-#'   \item{\code{emiss_cov_bar}}{A list containing one matrix per dependent
-#'   variable, denoting the group level regression coefficients predicting the
-#'   emission means within each of the dependent variables over the iterations
-#'   of the Gibbs sampler. The iterations of the sampler are contained in the
-#'   rows  of the matrix, and the columns contain the group level regression
-#'   coefficients.}
-#'   \item{\code{label_switch}}{A matrix of \code{m} rows and \code{n_dep}
-#'   columns containing the percentage of times the group mean of the emission
-#'   distriubion of state \code{i} was sampled to be a smaller value compared to
-#'   the group mean of of the emission distriubion of state \code{i-1}. If the
-#'   state dependent means of the emission distributions were given in a ranked
-#'   order (low to high) to both the start values and hyper-priors, a high
-#'   percentage in \code{label_switch} indicates that label switching possibly
-#'   poses a problem in the analysis, and further diagnostics (e.g.,
-#'   traceplots and posterior distributions) should be inspected.}
 #'   \item{\code{input}}{Overview of used input specifications: the number of
 #'   states \code{m}, the number of used dependent variables \code{n_dep}, the
 #'   number of iterations \code{J} and the specified burn in period
@@ -294,6 +275,12 @@
 #'   sampler. The time points of the dataset are contained in the rows, and the
 #'   sampled paths over the iterations are contained in the columns. Only
 #'   returned if \code{return_path = TRUE}. }
+#'   \item{\code{forward_prob}}{A nested list containing two or more matrices
+#'   per subject with the sampled forward probabilities of a given state \code{i}
+#'   over the iterations. The time points of the dataset are contained in the
+#'   rows, and the sampled forward probabilities for a stae \code{i} over the
+#'   iterations are contained in the columns. Only returned if
+#'   \code{return_fw_prob = TRUE}. }
 #' }
 #'
 #' @seealso \code{\link{sim_mHMM}} for simulating multilevel hidden Markov data,
@@ -318,45 +305,54 @@
 #' @examples
 #' ###### Example on simulated data
 #' # simulating multivariate continuous data
-#' n_t     <- 100
-#' n       <- 10
-#' m       <- 3
-#' n_dep   <- 2
+#' n_t     <- 400
+#' n       <- 30
+#' m       <- 2
+#' n_dep   <- 3
 #'
-#' gamma   <- matrix(c(0.8, 0.1, 0.1,
-#'                     0.2, 0.7, 0.1,
-#'                     0.2, 0.2, 0.6), ncol = m, byrow = TRUE)
+#' gamma   <- matrix(c(0.95, 0.05,
+#'                     # 0.2, 0.7, 0.1,
+#'                     0.02, 0.98), ncol = m, byrow = TRUE)
 #'
-#' emiss_distr <- list(matrix(c( 5, 1,
-#'                               10, 1,
-#'                               15, 1), nrow = m, byrow = TRUE),
-#'                     matrix(c(0.5, 0.1,
-#'                              1.0, 0.2,
-#'                              2.0, 0.1), nrow = m, byrow = TRUE))
+#' emiss_distr <- list(matrix(c(20, 1,
+#'                              # 1, 1,
+#'                              1, 1), nrow = m, byrow = TRUE),
+#'                     matrix(c(15, 1,
+#'                              # 2, 1,
+#'                              5, 1), nrow = m, byrow = TRUE),
+#'                     matrix(c(50, 1,
+#'                              # 3, 1,
+#'                              20, 1), nrow = m, byrow = TRUE))
 #'
-#' data_cont <- sim_mHMM(n_t = n_t, n = n, m = m, n_dep = n_dep, data_distr = 'continuous',
-#'                   gamma = gamma, emiss_distr = emiss_distr, var_gamma = .1, var_emiss = c(.5, 0.01))
+#' set.seed(42)
+#' data_pois <- sim_mHMM_pois(n_t = n_t, n = n, m = m, n_dep = n_dep, data_distr = 'poisson',
+#'                            gamma = gamma, emiss_distr = emiss_distr, var_gamma = .1, var_emiss = NULL, return_ind_par = TRUE)
 #'
 #' # Specify hyper-prior for the continuous emission distribution
 #' hyp_pr <- list(
-#'                emiss_mu0 = list(matrix(c(3,7,17), nrow = 1), matrix(c(0.7, 0.8, 1.8), nrow = 1)),
-#'                emiss_K0  = list(1, 1),
-#'                emiss_nu  = list(1, 1),
-#'                emiss_V   = list(rep(2, m), rep(1, m)),
-#'                emiss_a0  = list(rep(1, m), rep(1, m)),
-#'                emiss_b0  = list(rep(1, m), rep(1, m)))
+#'   emiss_alpha_a0 = rep(list(rep(1, m)),n_dep),
+#'   emiss_alpha_b0 = rep(list(rep(1, m)),n_dep),
+#'   emiss_beta_a0 = rep(list(rep(1, m)),n_dep),
+#'   emiss_beta_b0 = rep(list(rep(1, m)),n_dep)
+#' )
+#'
+#' # Specify starting values
+#' start_gamma <- diag(0.8, m)
+#' start_gamma[lower.tri(start_gamma) | upper.tri(start_gamma)] <- (1 - diag(start_gamma)) / (m - 1)
+#'
+#' start_emiss <- vector("list",length = n_dep)
+#' for(i in 1:n_dep) {start_emiss[[i]] <- matrix(c(30,0.1), nrow = m, byrow = TRUE)}
 #'
 #' # Run the model on the simulated data:
-#' out_3st_cont_sim <- mHMM_cont(s_data = data_cont$obs,
-#'                     gen = list(m = m, n_dep = n_dep),
-#'                     start_val = c(list(gamma), emiss_distr),
-#'                     emiss_hyp_prior = hyp_pr,
-#'                     mcmc = list(J = 11, burn_in = 5))
+#' out <- mHMM_pois(s_data = data_pois$obs,
+#'                  gen = list(m = m, n_dep = n_dep),
+#'                  start_val = c(list(start_gamma), start_emiss),
+#'                  emiss_hyp_prior = hyp_pr,
+#'                  mcmc = list(J = 100, burn_in = 50), alpha_scale = 10, return_path = TRUE, return_fw_prob = TRUE)
+#'
 #'
 #'
 #' @export
-#'
-#'
 
 mHMM_pois_rm <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, return_path = FALSE, return_fw_prob = FALSE, print_iter, show_progress = TRUE,
                       gamma_hyp_prior = NULL, gamma_sampler = NULL, alpha_scale = 1){
