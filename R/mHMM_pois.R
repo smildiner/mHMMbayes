@@ -178,9 +178,6 @@
 #'  hyper-prior on each of the means of the Poisson emission distribuitons
 #'  (note: here the standard Gamma parametrization is used, with parameters shape and rate).}}
 #'
-#'
-#'  See \emph{Details} below if covariates are used for changes in the settings
-#'  of the arguments of \code{emiss_hyp_prior}.
 #' @param gamma_sampler An optional list containing user specified settings for
 #'   the proposal distribution of the random walk (RW) Metropolis sampler for
 #'   the subject level parameter estimates of the intercepts modeling the
@@ -215,8 +212,8 @@
 #'   subject level parameter estimates and the log likelihood over the
 #'   iterations of the hybrid Metropolis within Gibbs sampler. The iterations of
 #'   the sampler are contained in the rows, and the columns contain the subject
-#'   level estimates of subsequently the emission means, the (fixed over subjects)
-#'   emission variances, the transition probabilities and the log likelihood.}
+#'   level estimates of subsequently the emission Poisson parameters, the
+#'   transition probabilities and the log likelihood.}
 #'   \item{\code{gamma_prob_bar}}{A matrix containing the group level parameter
 #'   estimates of the transition probabilities over the iterations of the hybrid
 #'   Metropolis within Gibbs sampler. The iterations of the sampler are
@@ -250,19 +247,16 @@
 #'   \code{alpha_bar} of the emission probabilities. The dependent variables
 #'   are contained in the rows, and the columns contain the hidden states.}
 #'   \item{\code{emiss_alpha_bar}}{A list containing one matrix per dependent
-#'   variable, denoting the group level means of the Normal emission
-#'   distribution of each dependent variable over the iterations of the Gibbs
-#'   sampler. The iterations of the sampler are contained in the rows of the
-#'   matrix, and the columns contain the group level emission means. If
-#'   covariates were included in the analysis, the group level means represent
-#'   the predicted mean given that the covariate is at the average value for
-#'   continuous covariates, or given that the covariate equals zero for
-#'   dichotomous covariates.}
+#'   variable, denoting the group-level shape parameters of the Gamma prior
+#'   of the Poisson emission distribution of each dependent variable over the
+#'   iterations of the Gibbs sampler. The iterations of the sampler are
+#'   contained in the rows of the matrix, and the columns contain the
+#'   group-level shape parameter of the Gamma prior.}
 #'   \item{\code{emiss_beta_bar}}{A list containing one matrix per dependent
-#'   variable, denoting the variance between the subject level means of the
-#'   Normal emision distributions. over the iterations of the Gibbs sampler. The
+#'   variable, denoting the group level rate parameter of the Gamma prior
+#'    over the iterations of the Gibbs sampler. The
 #'   iterations of the sampler are contained in the rows of the matrix, and the
-#'   columns contain the group level variance in the mean.}
+#'   columns contain the group-level rate parameter of the Gamma prior.}
 #'   \item{\code{input}}{Overview of used input specifications: the number of
 #'   states \code{m}, the number of used dependent variables \code{n_dep}, the
 #'   number of iterations \code{J} and the specified burn in period
