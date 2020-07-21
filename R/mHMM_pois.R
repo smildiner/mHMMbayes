@@ -503,7 +503,7 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
   }
   emiss_c_alpha_bar <- emiss_c_beta_bar <- rep(list(rep(list(NULL),n_dep)), m)
   n_cond_y <- numeric(n_subj)
-  emiss_naccept <- rep(list(matrix(0, n_subj, m)), n_dep)
+  emiss_naccept <- matrix(0, n_dep, m)
 
 
   # Define objects that are returned from mcmc algorithm ----------------------------
@@ -669,7 +669,7 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
         # Sample alpha
         emiss_RW_out <- pois_RW_once(lambdas = emiss_c_mu[[i]][[q]][,1], alpha_old = emiss_c_alpha_bar[[i]][[q]], beta = emiss_c_beta_bar[[i]][[q]], a0 = emiss_alpha_bar_a0[[q]], b0 = emiss_alpha_bar_b0[[q]], alpha_scale = alpha_scale)
         emiss_c_alpha_bar[[i]][[q]] <- emiss_alpha_bar[[q]][iter,i] <- emiss_RW_out$alpha
-        emiss_naccept[[q]][s, i] <- emiss_naccept[[q]][s, i] + emiss_RW_out$accept
+        emiss_naccept[q, i] <- emiss_naccept[q, i] + emiss_RW_out$accept
 
         # Sample beta
         emiss_c_beta_bar[[i]][[q]] <- emiss_beta_bar[[q]][iter,i] <- rgamma(1, shape = (emiss_c_alpha_bar[[i]][[q]]*n_subj + 1 + emiss_beta_bar_a0[[q]]), rate = (emiss_beta_bar_b0[[q]] + sum(emiss_c_mu[[i]][[q]][,1])))
