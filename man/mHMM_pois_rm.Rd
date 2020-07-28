@@ -3,7 +3,7 @@
 \name{mHMM_pois_rm}
 \alias{mHMM_pois_rm}
 \title{Multilevel hidden Markov model using Bayesian estimation for count
-observations and a repeated-measurement design}
+data and a repeated-measures design}
 \usage{
 mHMM_pois_rm(
   s_data,
@@ -226,11 +226,11 @@ ensure an efficient sampling from the posterior distribution of
   hybrid Metropolis within Gibbs sampler. The iterations of the sampler are
   contained in the rows, and the columns contain the subject level
   intercepts.}
-  \item{\code{gamma_naccept}}{A matrix containing the number of accepted
+  \item{\code{gamma_paccept}}{A matrix containing the proportion of accepted
   draws at the subject level RW Metropolis step for each set of parameters of
   the transition probabilities. The subjects are contained in the rows, and
   the columns contain the sets of parameters.}
-  \item{\code{emiss_naccept}}{A matrix containing the number of accepted
+  \item{\code{emiss_paccept}}{A matrix containing the proportion of accepted
   draws at the subject level RW Metropolis step for each set of
   \code{alpha_bar} of the emission probabilities. The dependent variables
   are contained in the rows, and the columns contain the hidden states.}
