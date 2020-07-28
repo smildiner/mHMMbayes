@@ -1,5 +1,5 @@
 #' Multilevel hidden Markov model using Bayesian estimation for count
-#' observations and a repeated-measurement design
+#' data and a repeated-measures design
 #'
 #' \code{mHMM_pois} fits a multilevel (also known as mixed or random effects)
 #' hidden Markov model (HMM) to intense longitudinal data with count
@@ -238,11 +238,11 @@
 #'   hybrid Metropolis within Gibbs sampler. The iterations of the sampler are
 #'   contained in the rows, and the columns contain the subject level
 #'   intercepts.}
-#'   \item{\code{gamma_naccept}}{A matrix containing the number of accepted
+#'   \item{\code{gamma_paccept}}{A matrix containing the proportion of accepted
 #'   draws at the subject level RW Metropolis step for each set of parameters of
 #'   the transition probabilities. The subjects are contained in the rows, and
 #'   the columns contain the sets of parameters.}
-#'   \item{\code{emiss_naccept}}{A matrix containing the number of accepted
+#'   \item{\code{emiss_paccept}}{A matrix containing the proportion of accepted
 #'   draws at the subject level RW Metropolis step for each set of
 #'   \code{alpha_bar} of the emission probabilities. The dependent variables
 #'   are contained in the rows, and the columns contain the hidden states.}
@@ -295,6 +295,12 @@
 #' \insertRef{rossi2012}{mHMMbayes}
 #'
 #' \insertRef{zucchini2017}{mHMMbayes}
+#'
+#' \insertReg{congdon2019}{mHMMbayes}
+#'
+#' \insertReg{gill2014}{mHMMbayes}
+#'
+#' \insertReg{bolstad2016}{mHMMbayes}
 #'
 #' @examples
 #' ###### Example on simulated data
@@ -646,7 +652,6 @@ mHMM_pois_rm <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcm
       # used to scale the propasal distribution of the RW Metropolis sampler
 
       # population level, transition matrix
-      print(str(trans[[1]][[1]]))
       # trans_pooled			  <- factor(c(unlist(sapply(trans, function(l) sapply(l,"[[", i))), c(1:m)))
       trans_pooled			  <- factor(unlist(sapply(trans, function(l) sapply(l,"[[", i))))
       gamma_mle_pooled		<- optim(gamma_int_mle0, llmnl_int, Obs = trans_pooled,
@@ -706,6 +711,18 @@ mHMM_pois_rm <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcm
       }
 
       # Sample subject values for normal emission distribution using Gibbs sampler   ---------
+      # population level, conditional probabilities, separate for each dependent variable
+      #
+      # For more information refer to Gill p.429, Bolstad p.196 & Congdon p.123
+      #
+      # Likelihood functions based on George et al. (1993) p.191, and Congdon (2020) p.123
+
+      # Bibliography:
+      # - Bayesian Hierarchical Models With Applications Using R (Second Edition). Peter D. Congdon, 2020.
+      # - Bayesian Methods A Social and Behavioral Sciences Approach (Third Edition). Jeff Gill, 2015.
+      # - INTRODUCTION TO BAYESIAN STATISTICS (Third Edition). WILLIAM M. BOLSTAD & JAMES M. CURRAN, 2017.
+
+      # Sample subject values for normal emission distribution using Gibbs sampler   ---------
       # population level, conditional probabilities, separate for each dependent variable, see Gill p.429 & Bolstad p.196
       for(q in 1:n_dep){
 
@@ -759,13 +776,16 @@ mHMM_pois_rm <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcm
   ctime = proc.time()[3]
   message(paste("Total time elapsed (hh:mm:ss):", hms(ctime-itime)))
 
+  gamma_paccept <- gamma_naccept/J
+  emiss_paccept <- emiss_naccept/J
+
   out <- list(input = list(m = m, n_dep = n_dep, J = J,
                            burn_in = burn_in, n_subj = n_subj, n_vary = n_vary, dep_labels = dep_labels),
               PD_subj = PD_subj, gamma_int_subj = gamma_int_subj,
               gamma_int_bar = gamma_int_bar, gamma_cov_bar = gamma_cov_bar, gamma_prob_bar = gamma_prob_bar,
               emiss_alpha_bar = emiss_alpha_bar, emiss_beta_bar = emiss_beta_bar,
-              gamma_naccept = gamma_naccept,
-              emiss_naccept = emiss_naccept)
+              gamma_paccept = gamma_paccept,
+              emiss_paccept = emiss_paccept)
 
   if(return_path == TRUE){
     out[["sample_path"]] <- sample_path

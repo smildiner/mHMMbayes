@@ -1,5 +1,5 @@
 #' Multilevel hidden Markov model using Bayesian estimation for count
-#' observations
+#' data
 #'
 #' \code{mHMM_pois} fits a multilevel (also known as mixed or random effects)
 #' hidden Markov model (HMM) to intense longitudinal data with count
@@ -238,11 +238,11 @@
 #'   hybrid Metropolis within Gibbs sampler. The iterations of the sampler are
 #'   contained in the rows, and the columns contain the subject level
 #'   intercepts.}
-#'   \item{\code{gamma_naccept}}{A matrix containing the number of accepted
+#'   \item{\code{gamma_paccept}}{A matrix containing the proportion of accepted
 #'   draws at the subject level RW Metropolis step for each set of parameters of
 #'   the transition probabilities. The subjects are contained in the rows, and
 #'   the columns contain the sets of parameters.}
-#'   \item{\code{emiss_naccept}}{A matrix containing the number of accepted
+#'   \item{\code{emiss_paccept}}{A matrix containing the proportion of accepted
 #'   draws at the subject level RW Metropolis step for each set of
 #'   \code{alpha_bar} of the emission probabilities. The dependent variables
 #'   are contained in the rows, and the columns contain the hidden states.}
@@ -295,6 +295,12 @@
 #' \insertRef{rossi2012}{mHMMbayes}
 #'
 #' \insertRef{zucchini2017}{mHMMbayes}
+#'
+#' \insertReg{congdon2019}{mHMMbayes}
+#'
+#' \insertReg{gill2014}{mHMMbayes}
+#'
+#' \insertReg{bolstad2016}{mHMMbayes}
 #'
 #' @examples
 #' ###### Example on simulated data
@@ -718,13 +724,16 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
   ctime = proc.time()[3]
   message(paste("Total time elapsed (hh:mm:ss):", hms(ctime-itime)))
 
+  gamma_paccept <- gamma_naccept/J
+  emiss_paccept <- emiss_naccept/J
+
   out <- list(input = list(m = m, n_dep = n_dep, J = J,
                            burn_in = burn_in, n_subj = n_subj, n_vary = n_vary, dep_labels = dep_labels),
               PD_subj = PD_subj, gamma_int_subj = gamma_int_subj,
               gamma_int_bar = gamma_int_bar, gamma_cov_bar = gamma_cov_bar, gamma_prob_bar = gamma_prob_bar,
               emiss_alpha_bar = emiss_alpha_bar, emiss_beta_bar = emiss_beta_bar,
-              gamma_naccept = gamma_naccept,
-              emiss_naccept = emiss_naccept)
+              gamma_paccept = gamma_paccept,
+              emiss_paccept = emiss_paccept)
 
   if(return_path == TRUE){
     out[["sample_path"]] <- sample_path
