@@ -588,12 +588,14 @@ mHMM_pois_rm <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcm
   gamma 			<- rep(list(matrix(PD[1,(m * n_dep + 1):(m * n_dep + m * m)], byrow = TRUE, ncol = m)), n_subj)
   delta 			<- rep(list(solve(t(diag(m) - gamma[[1]] + 1), rep(1, m))), n_subj)
 
-  forward_prob <- vector("list", n_subj)
-  for(s in 1:n_subj){
-    forward_prob[[s]] <- vector("list",n_subj_rm[[s]])
-    for(r in 1:n_subj_rm[[s]]){
-      for(i in 1:m){
-        forward_prob[[s]][[r]][[paste0("fw_prob_S",i)]] <- matrix(,nrow = n_vary_rm[[s]][[r]], ncol = J)
+  if(return_fw_prob == TRUE) {
+    forward_prob <- vector("list", n_subj)
+    for(s in 1:n_subj){
+      forward_prob[[s]] <- vector("list",n_subj_rm[[s]])
+      for(r in 1:n_subj_rm[[s]]){
+        for(i in 1:m){
+          forward_prob[[s]][[r]][[paste0("fw_prob_S",i)]] <- matrix(,nrow = n_vary_rm[[s]][[r]], ncol = J)
+        }
       }
     }
   }
@@ -635,7 +637,10 @@ mHMM_pois_rm <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcm
 
         for (i in 1:m){
           trans[[s]][[r]][[i]] <- rev(c(trans[[s]][[r]][[i]],1:m))
-          forward_prob[[s]][[r]][[i]][, iter] <- alpha[i,]
+
+          if(return_fw_prob == TRUE) {
+            forward_prob[[s]][[r]][[i]][, iter] <- alpha[i,]
+          }
           for(q in 1:n_dep){
             cond_y[[s]][[r]][[i]][[q]] <- c(subj_data_rm[[s]][[r]]$y[sample_path[[s]][[r]][, iter] == i, q],1)
             # cond_y[[s]][[r]][[i]][[q]] <- subj_data_rm[[s]][[r]]$y[sample_path[[s]][[r]][, iter] == i, q]
