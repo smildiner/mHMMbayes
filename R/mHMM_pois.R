@@ -296,11 +296,11 @@
 #'
 #' \insertRef{zucchini2017}{mHMMbayes}
 #'
-#' \insertReg{congdon2019}{mHMMbayes}
+#' \insertRef{congdon2019}{mHMMbayes}
 #'
-#' \insertReg{gill2014}{mHMMbayes}
+#' \insertRef{gill2014}{mHMMbayes}
 #'
-#' \insertReg{bolstad2016}{mHMMbayes}
+#' \insertRef{bolstad2016}{mHMMbayes}
 #'
 #' @examples
 #' ###### Example on simulated data

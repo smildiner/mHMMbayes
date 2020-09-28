@@ -373,6 +373,12 @@ out <- mHMM_pois(s_data = data_pois$obs,
 \insertRef{rossi2012}{mHMMbayes}
 
 \insertRef{zucchini2017}{mHMMbayes}
+
+\insertReg{congdon2019}{mHMMbayes}
+
+\insertReg{gill2014}{mHMMbayes}
+
+\insertReg{bolstad2016}{mHMMbayes}
 }
 \seealso{
 \code{\link{sim_mHMM}} for simulating multilevel hidden Markov data,
