@@ -105,6 +105,21 @@
 #'   (\code{return_fw_prob = FALSE}). Note that the forward probability
 #'   sequence is quite a large object, hence the default setting is
 #'   \code{return_fw_prob = FALSE}.
+#' @param force_ordering A logical scalar. Should the means of the dependent
+#'   variables be ordered in decreasing values to ensure consistency and avoid
+#'   label switching (\code{force_ordering = TRUE}) or not
+#'   (\code{force_ordering = TRUE}). Because the hierarchical Gamma prior on
+#'   the hierarchical Poisson-Gamma model allows for overdispersion in the
+#'   means, hidden states may not represent the same across subjects. Forcing
+#'   an order on the means is a way of ensuring consistency between subjects.
+#'   Note that by forcing the reordering of the dependent variables' means,
+#'   we are forcing each hidden state to represent the same across dependent
+#'   variables (e.g. the mean of the first hidden state will always be
+#'   larger than the mean of the second hidden state, for all the dependent
+#'   variables). If this assumption does not hold, the results will not be
+#'   a good representation of the data (e.g. n_dep1 with high values of y for
+#'   state1 and low y for state2, n_dep2 with low values of y for state1 and
+#'   high values of y for state2).
 #' @param print_iter The argument print_iter is depricated; please use
 #'   show_progress instead to show the progress of the algorithm.
 #' @param show_progress A logical scaler. Should the function show a text
@@ -355,7 +370,9 @@
 #' @export
 
 
-mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, return_path = FALSE, return_fw_prob = FALSE, print_iter, show_progress = TRUE,
+mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc,
+                      return_path = FALSE, return_fw_prob = FALSE, force_ordering = FALSE,
+                      print_iter, show_progress = TRUE,
                       gamma_hyp_prior = NULL, gamma_sampler = NULL, alpha_scale = 1){
 
   if(!missing(print_iter)){
@@ -703,6 +720,30 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
       }
     }
 
+    #------------------------------------------------------------------------------#
+    # If desired, the means of each dependent variable can be reordered to ensure consistency
+    if(force_ordering == TRUE){
+      emiss_alpha_bar[[q]][iter, ] <- emiss_alpha_bar[[q]][iter,
+                                                           order(emiss_alpha_bar[[q]][iter, ], decreasing = TRUE)]
+      emiss_beta_bar[[q]][iter, ] <- emiss_beta_bar[[q]][iter,
+                                                         order(emiss_beta_bar[[q]][iter, ], decreasing = TRUE)]
+      for (i in 1:m) {
+        for (q in 1:n_dep) {
+          for (s in 1:n_subj) {
+            emiss[[s]][[q]][, 1] <- emiss[[s]][[q]][order(emiss[[s]][[q]][,
+                                                                          1], decreasing = TRUE), 1]
+            PD_subj[[s]][iter, ((q - 1) * m + i)] <- emiss[[s]][[q]][i,
+                                                                     1]
+            emiss_c_mu[[i]][[q]][s, 1] <- emiss[[s]][[q]][i,
+                                                          1]
+          }
+        }
+
+        emiss_c_alpha_bar[[i]][[q]] <- emiss_alpha_bar[[q]][iter, i]
+        emiss_c_beta_bar[[i]][[q]] <- emiss_beta_bar[[q]][iter, i]
+      }
+    }
+    #------------------------------------------------------------------------------#
 
 
     # End of MCMC iteration, save output values --------

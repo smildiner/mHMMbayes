@@ -14,6 +14,7 @@ mHMM_pois(
   mcmc,
   return_path = FALSE,
   return_fw_prob = FALSE,
+  force_ordering = FALSE,
   print_iter,
   show_progress = TRUE,
   gamma_hyp_prior = NULL,
@@ -120,6 +121,22 @@ subject be returned by the function (\code{return_fw_prob = TRUE}) or not
 (\code{return_fw_prob = FALSE}). Note that the forward probability
 sequence is quite a large object, hence the default setting is
 \code{return_fw_prob = FALSE}.}
+
+\item{force_ordering}{A logical scalar. Should the means of the dependent
+variables be ordered in decreasing values to ensure consistency and avoid
+label switching (\code{force_ordering = TRUE}) or not
+(\code{force_ordering = TRUE}). Because the hierarchical Gamma prior on
+the hierarchical Poisson-Gamma model allows for overdispersion in the
+means, hidden states may not represent the same across subjects. Forcing
+an order on the means is a way of ensuring consistency between subjects.
+Note that by forcing the reordering of the dependent variables' means,
+we are forcing each hidden state to represent the same across dependent
+variables (e.g. the mean of the first hidden state will always be
+larger than the mean of the second hidden state, for all the dependent
+variables). If this assumption does not hold, the results will not be
+a good representation of the data (e.g. n_dep1 with high values of y for
+state1 and low y for state2, n_dep2 with low values of y for state1 and
+high values of y for state2).}
 
 \item{print_iter}{The argument print_iter is depricated; please use
 show_progress instead to show the progress of the algorithm.}
@@ -374,11 +391,11 @@ out <- mHMM_pois(s_data = data_pois$obs,
 
 \insertRef{zucchini2017}{mHMMbayes}
 
-\insertReg{congdon2019}{mHMMbayes}
+\insertRef{congdon2019}{mHMMbayes}
 
-\insertReg{gill2014}{mHMMbayes}
+\insertRef{gill2014}{mHMMbayes}
 
-\insertReg{bolstad2016}{mHMMbayes}
+\insertRef{bolstad2016}{mHMMbayes}
 }
 \seealso{
 \code{\link{sim_mHMM}} for simulating multilevel hidden Markov data,
