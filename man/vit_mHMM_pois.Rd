@@ -119,6 +119,6 @@ states <- vit_mHMM(s_data = data1$obs, object = out_2st_sim)
 }
 \seealso{
 \code{\link{mHMM_pois}} for analyzing multilevel hidden Markov data
-  and obtaining the input needed for \code{vit_mHMM}, and
+  and obtaining the input needed for \code{vit_mHMM_pois}, and
   \code{\link{sim_mHMM_pois}} for simulating multilevel hidden Markov data.
 }
