@@ -563,7 +563,7 @@ mHMM_cont <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc, 
     for(q in 1:n_dep){
       if(nx[1 + q] > 1){
         # colnames(emiss_cov_bar[[q]]) <-  paste( paste("cov", rep(1 : (nx[1+q] - 1),each = nx[1+q]-1), "_", sep = ""), "mu_S", rep(1:m, each = (nx[1 + q] - 1)), sep = "")
-        colnames(emiss_cov_bar[[q]]) <-  print(paste( paste("cov", 1 : (nx[1+q] - 1), "_", sep = ""), "mu_S", rep(1:m, each = (nx[1 + q] - 1)), sep = ""))
+        colnames(emiss_cov_bar[[q]]) <-  paste( paste("cov", 1 : (nx[1+q] - 1), "_", sep = ""), "mu_S", rep(1:m, each = (nx[1 + q] - 1)), sep = "")
         emiss_cov_bar[[q]][1,] <- 0
       } else {
         emiss_cov_bar[[q]] <- "No covariates where used to predict the emission probabilities for this outcome"
