@@ -32,7 +32,7 @@
 
 vit_mHMM_cont <- function(object, s_data, burn_in = NULL){
 
-  if (!is.mHMM_cont(object)){
+  if (!("mHMM_cont" %in% class(out))){
     stop("The input object used should be from the class mHMM_cont, obtained by using the function mHMM_cont.")
   }
   id         <- unique(s_data[,1])
