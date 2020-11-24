@@ -580,7 +580,7 @@ mHMM_pois <- function(s_data, gen, xx = NULL, start_val, emiss_hyp_prior, mcmc,
   forward_prob <- vector("list", n_subj)
   for(s in 1:n_subj){
     for(i in 1:m){
-      forward_prob[[s]][[paste0("fw_prob_S",i)]] <- matrix(,nrow = n_vary, ncol = J)
+      forward_prob[[s]][[paste0("fw_prob_S",i)]] <- matrix(,nrow = n_vary[s], ncol = J)
     }
   }
 
