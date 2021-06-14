@@ -249,6 +249,12 @@
 #'   probabilities over the iterations of the hybrid Metropolis within Gibbs
 #'   sampler. The iterations of the sampler are contained in the rows, and the
 #'   columns contain the group level intercepts.}
+#'   \item{\code{gamma_V_int_bar}}{A matrix containing the (co-)variance
+#'   components for the subject-level intercepts
+#'   of the multinomial logistic regression modeling the transition
+#'   probabilities over the iterations of the hybrid Metropolis within Gibbs
+#'   sampler. The iterations of the sampler are contained in the rows, and the
+#'   columns contain the variance components for the subject level intercepts.}
 #'   \item{\code{gamma_cov_bar}}{A matrix containing the group level regression
 #'   coefficients of the multinomial logistic regression predicting the
 #'   transition probabilities over the iterations of the hybrid Metropolis within
@@ -279,6 +285,12 @@
 #'   emission distribution over the iterations of the hybrid Metropolis within
 #'   Gibbs sampler. The iterations of the sampler are contained in the rows of
 #'   the matrix, and the columns contain the group level intercepts.}
+#'   \item{\code{emiss_V_int_bar}}{A matrix containing the (co-)variance
+#'   components for the subject-level intercepts
+#'   of the multinomial logistic regression modeling the emission
+#'   probabilities over the iterations of the hybrid Metropolis within Gibbs
+#'   sampler. The iterations of the sampler are contained in the rows, and the
+#'   columns contain the variance components for the subject level intercepts.}
 #'   \item{\code{emiss_cov_bar}}{A list containing one matrix per dependent
 #'   variable, denoting the group level regression coefficients of the
 #'   multinomial logistic regression predicting the emission probabilities within
@@ -621,6 +633,11 @@ mHMM <- function(s_data, gen, xx = NULL, start_val, mcmc, return_path = FALSE, p
   gamma_int_bar				<- matrix(, nrow = J, ncol = ((m-1) * m))
   colnames(gamma_int_bar) <- paste("int_S", rep(1:m, each = m-1), "toS", rep(2:m, m), sep = "")
   gamma_int_bar[1,] <- as.vector(prob_to_int(matrix(gamma_prob_bar[1,], byrow = TRUE, ncol = m, nrow = m)))
+
+  gamma_V_int_bar <- matrix(, nrow = J, ncol = ((m-1) * (m-1) * m))
+  colnames(gamma_V_int_bar) <- paste("var_int_S", rep(1:m, each = (m-1)*(m-1)), "toS", rep(2:m, each=m-1), "_with_", "int_S", rep(1:m, each = (m-1)*(m-1)), "toS", rep(2:m, m), sep = "")
+  gamma_V_int_bar[1,] <- unlist(lapply(gamma_V, function(e) as.vector(t(e))))
+
   if(nx[1] > 1){
     gamma_cov_bar				<- matrix(, nrow = J, ncol = ((m-1) * m) * (nx[1] - 1))
     colnames(gamma_cov_bar) <- paste( paste("cov", rep(1 : (nx[1] - 1),each = (m-1)), "_", sep = ""), "S", rep(1:m, each = (m-1) * (nx[1] - 1)), "toS", rep(2:m, m * (nx[1] - 1)), sep = "")
@@ -630,9 +647,16 @@ mHMM <- function(s_data, gen, xx = NULL, start_val, mcmc, return_path = FALSE, p
   }
   emiss_int_bar			<- lapply((q_emiss-1) * m, dif_matrix, rows = J)
   names(emiss_int_bar) <- dep_labels
+
+  emiss_V_int_bar <- lapply((q_emiss-1) * (q_emiss-1) * m, dif_matrix, rows = J)
+  names(emiss_V_int_bar) <- dep_labels
+
   for(q in 1:n_dep){
     colnames(emiss_int_bar[[q]]) <-  paste("int_Emiss", rep(2:q_emiss[q], m), "_S", rep(1:m, each = q_emiss[q] - 1), sep = "")
     emiss_int_bar[[q]][1,] <- as.vector(prob_to_int(matrix(emiss_prob_bar[[q]][1,], byrow = TRUE, ncol = q_emiss[q], nrow = m)))
+
+    emiss_V_int_bar[[q]] <- matrix(, nrow = J, ncol = ((q_emiss[q]-1) * (q_emiss[q]-1) * m))
+    colnames(emiss_V_int_bar[[q]]) <- paste("var_int_Emiss", rep(2:q_emiss[q], each = (q_emiss[q]-1)),"_with_Emiss",rep(2:q_emiss[q], (q_emiss[q]-1)), "_S", rep(1:m, each = (q_emiss[q] - 1)*(q_emiss[q] - 1)), sep = "")
   }
   if(sum(nx[-1]) > n_dep){
     emiss_cov_bar			<- lapply((q_emiss-1) * m * (nx[-1] - 1 ), dif_matrix, rows = J)
@@ -820,6 +844,7 @@ mHMM <- function(s_data, gen, xx = NULL, start_val, mcmc, return_path = FALSE, p
 
     # End of 1 MCMC iteration, save output values --------
     gamma_int_bar[iter, ]				   	<- unlist(lapply(gamma_mu_int_bar, "[",1,))
+    gamma_V_int_bar[iter, ] <- unlist(lapply(gamma_V_int, function(e) as.vector(t(e))))
     if(nx[1] > 1){
       gamma_cov_bar[iter, ]      	<- unlist(lapply(gamma_mu_int_bar, "[",-1,))
     }
@@ -834,6 +859,7 @@ mHMM <- function(s_data, gen, xx = NULL, start_val, mcmc, return_path = FALSE, p
         ))
       }
       emiss_prob_bar[[q]][iter,]	<- as.vector(unlist(sapply(emiss_mu_prob_bar, "[[", q)))
+      emiss_V_int_bar[[q]][iter,] <- unlist(lapply(emiss_V_int, function(e) as.vector(t(e[[q]]))))
     }
     if(show_progress == TRUE){
       utils::setTxtProgressBar(pb, iter)
@@ -849,18 +875,36 @@ mHMM <- function(s_data, gen, xx = NULL, start_val, mcmc, return_path = FALSE, p
   if(return_path == TRUE){
     out <- list(input = list(m = m, n_dep = n_dep, q_emiss = q_emiss, J = J,
                              burn_in = burn_in, n_subj = n_subj, n_vary = n_vary, dep_labels = dep_labels),
-                PD_subj = PD_subj, gamma_int_subj = gamma_int_subj, emiss_int_subj = emiss_int_subj,
-                gamma_int_bar = gamma_int_bar, gamma_cov_bar = gamma_cov_bar, emiss_int_bar = emiss_int_bar,
-                emiss_cov_bar = emiss_cov_bar, gamma_prob_bar = gamma_prob_bar,
-                emiss_prob_bar = emiss_prob_bar, gamma_naccept = gamma_naccept, emiss_naccept = emiss_naccept,
+                PD_subj = PD_subj,
+                gamma_int_subj = gamma_int_subj,
+                emiss_int_subj = emiss_int_subj,
+                gamma_int_bar = gamma_int_bar,
+                gamma_V_int_bar = gamma_V_int_bar,
+                gamma_cov_bar = gamma_cov_bar,
+                emiss_int_bar = emiss_int_bar,
+                emiss_V_int_bar = emiss_V_int_bar,
+                emiss_cov_bar = emiss_cov_bar,
+                gamma_prob_bar = gamma_prob_bar,
+                emiss_prob_bar = emiss_prob_bar,
+                gamma_naccept = gamma_naccept,
+                emiss_naccept = emiss_naccept,
                 sample_path = sample_path)
   } else {
     out <- list(input = list(m = m, n_dep = n_dep, q_emiss = q_emiss, J = J,
                              burn_in = burn_in, n_subj = n_subj, n_vary = n_vary, dep_labels = dep_labels),
-                PD_subj = PD_subj, gamma_int_subj = gamma_int_subj, emiss_int_subj = emiss_int_subj,
-                gamma_int_bar = gamma_int_bar, gamma_cov_bar = gamma_cov_bar, emiss_int_bar = emiss_int_bar,
-                emiss_cov_bar = emiss_cov_bar, gamma_prob_bar = gamma_prob_bar,
-                emiss_prob_bar = emiss_prob_bar, gamma_naccept = gamma_naccept, emiss_naccept = emiss_naccept)
+                PD_subj = PD_subj,
+                gamma_int_subj = gamma_int_subj,
+                emiss_int_subj = emiss_int_subj,
+                gamma_int_bar = gamma_int_bar,
+                gamma_V_int_bar = gamma_V_int_bar,
+                gamma_cov_bar = gamma_cov_bar,
+                emiss_int_bar = emiss_int_bar,
+                emiss_V_int_bar = emiss_V_int_bar,
+                emiss_cov_bar = emiss_cov_bar,
+                gamma_prob_bar = gamma_prob_bar,
+                emiss_prob_bar = emiss_prob_bar,
+                gamma_naccept = gamma_naccept,
+                emiss_naccept = emiss_naccept)
   }
   class(out) <- append(class(out), "mHMM")
   return(out)
